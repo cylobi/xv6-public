@@ -205,7 +205,7 @@ void initCircularBuffer() {
 
 // Function to add a string (command) to the circular buffer
 void addString(char* string) {
-    Node* newNode = malloc(sizeof(Node));
+    Node* newNode = (struct Node*) kalloc();
     strncpy(newNode->string, string, MAX_CMD_SIZE);
     newNode->next = NULL;
 
@@ -218,20 +218,11 @@ void addString(char* string) {
         if (hist.size == hist.capacity) {
             Node* temp = hist.head;
             hist.head = hist.head->next;
-            free(temp);
+            kfree((char*) temp);
+            hist.size --;
         }
     }
     hist.size = (hist.size + 1) % hist.capacity;
-}
-
-// Function to remove the oldest string (command) from the circular buffer
-void removeOldest() {
-    if (hist.size > 0) {
-        Node* temp = hist.head;
-        hist.head = hist.head->next;
-        free(temp);
-        hist.size--;
-    }
 }
 
 // Function to find a matching string (command) in the circular buffer
@@ -298,31 +289,9 @@ void format_string(char* format_string){
 }
 
 void
-suggest_cmd() {
-    // Start from the current write index and move backwards until finding a newline character
-    int i = input.e - 1;
-    while (i >= 0 && input.buf[i % INPUT_BUF] != '\n') {
-        i--;
-    }
-
-    // Copy the incomplete command from the buffer
-    char input_cmd[INPUT_BUF+1];
-    int j = 0;
-    for (i++; i < input.e; i++) {
-        input_cmd[j++] = input.buf[i % INPUT_BUF];
-    }
-    input_cmd[j] = '\0';
-
-    // Find suggestions and display them
-    char* suggested_cmd = findMatchingString(input_cmd);
-    if (suggested_cmd != NULL) {
-        // Show the suggested command
-        consclear();
-        consputs(suggested_cmd);
-    } else {
-        // Beep if no suggestion found
-        consputc('\a');
-    }
+suggest_cmd(char* input_string) {
+    // Find suggestions
+    return findMatchingString(input_string);
 }
 
 void
@@ -382,7 +351,22 @@ consoleintr(int (*getc)(void))
       break;
 
     case '\t':
-      suggest_cmd();  // Call the function to suggest commands
+      char input_str[INPUT_BUF];
+      int i = 0;
+      while(input.e != input.w){
+        input_str[i] = input.buf[i];
+        input.e--;
+        i++;
+      }
+		  input_str[i] = '\0';
+      suggest_cmd(input_str);  // Call the function to suggest commands
+
+      i = 0;
+      while(input_str[i] != '\0'){
+        input.buf[input.e++ % INPUT_BUF] = input_str[i];
+        consputc(input_str[i]);
+        i++;
+      }
       break;
 
     case C('U'):  // Kill line.
